@@ -1,5 +1,9 @@
-#!/usr/bin/env lumo
-(require '[cljs.nodejs :as nodejs])
+(ns ddu.main
+  (:require [cljs.nodejs :as nodejs]
+            [clojure.core.async :as a]))
+
+(nodejs/enable-util-print!)
+
 (def https (nodejs/require "https"))
 (def fs (nodejs/require "fs"))
 
@@ -16,6 +20,8 @@
                (fn [data]
                  (reset! raw-data (str @raw-data data))))
           (.on res "end"
-               (fn [] (js/console.log @raw-data))))))
+               (fn [] (println @raw-data))))))
 
-(get-req (:dns-url config))
+(defn main
+  []
+  (get-req (:dns-url config)))
