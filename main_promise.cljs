@@ -7,11 +7,8 @@
   (-> (.parse js/JSON (.readFileSync fs "config.json"))
       (js->clj :keywordize-keys true)))
 
-(defn promise [executor]
-  (new js/Promise executor))
-
 (defn get-req [url]
-  (promise
+  (js/Promise.
    (fn [resolve]
      (.get https url
            (fn [res]
