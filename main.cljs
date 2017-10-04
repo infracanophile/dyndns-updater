@@ -1,8 +1,12 @@
 #!/usr/bin/env lumo
 (require '[cljs.nodejs :as nodejs])
 (def https (nodejs/require "https"))
+(def fs (nodejs/require "fs"))
 
-(def dns-url "https://freedns.afraid.org/dynamic/update.php?clh0R1dNNFlBUks1NkhYWVJSaE06MTU2MDQxMjQ=")
+(def config
+  (-> (.parse js/JSON (.readFileSync fs "config.json"))
+      (js->clj :keywordize-keys true)))
+
 (def raw-data (atom nil))
 
 (defn get-req [url]
@@ -14,4 +18,4 @@
           (.on res "end"
                (fn [] (js/console.log @raw-data))))))
 
-(get-req dns-url)
+(get-req (:dns-url config))
