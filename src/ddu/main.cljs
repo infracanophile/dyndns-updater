@@ -5,16 +5,24 @@
             [cljs.reader :refer [read-string]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
-;; Use print/println instead of console.log
-(nodejs/enable-util-print!)
-
 (def https (nodejs/require "https"))
-(def fs (nodejs/require "fs"))
+(def process (nodejs/require "process"))
+
+(def default-config-file "config.edn")
 
 
 (defn load-config
+  [config-file]
+  (-> config-file slurp read-string))
+
+
+(defn cmd-line-args
+  "Nodejs's process.argv property is [nodepath scriptpath & arguments]
+  So we use the .- operator to access an object property
+  drop the first two and take the first of the remaining seq
+  will be either an arg or nil"
   []
-  (-> "config.edn" slurp read-string))
+  (->> (.-argv process) (drop 2) first))
 
 
 (defn get-req
@@ -25,11 +33,9 @@
   (let [response-ch (chan)]
     (.get https url
           (fn [res]
-            (.on res "data"
-                 (fn [data]
-                   (put! response-ch data)))
-            (.on res "end"
-                 (fn [] (close! response-ch)))))
+            (doto res
+              (.on "data" #(put! response-ch %))
+              (.on "end" #(close! response-ch)))))
     response-ch))
 
 
@@ -39,9 +45,8 @@
   get them but that could interleave text in the console if the response is
   long and something else is printing (stderr for example) (we know it won't be
   but still good practice)"
-  []
-  (let [config (load-config)
-        response-ch (get-req (:dns-url config))]
+  [{:keys [dns-url]}]
+  (let [response-ch (get-req dns-url)]
     ;; Could use go-loop but that isn't a recur target in cljs, some old bug?
     (go
       (loop [response ""]
@@ -50,8 +55,13 @@
           (println response))))))
 
 
-(defn main []
-  ;; outrageous hack to get clojurescript/node to work propertly with node
-  ;; Bug ASYNC-110 is not fixed
+(defn main
+  []
+  ;; outrageous hack to get cljs and core.async to cooperate with node
+  ;; Bug ASYNC-110 is *not* fixed
   (set! js/goog.global js/global)
-  (update-dyndns))
+  ;; Use print/println instead of console.log
+  (nodejs/enable-util-print!)
+  (let [config-file (or (cmd-line-args) default-config-file)
+        config (load-config config-file)]
+    (update-dyndns config)))

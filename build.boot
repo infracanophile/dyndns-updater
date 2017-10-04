@@ -19,7 +19,7 @@
    (target)))
 
 
-(deftask prod
+(deftask build
   "full build"
   []
   (comp (cljs :optimizations :simple)
