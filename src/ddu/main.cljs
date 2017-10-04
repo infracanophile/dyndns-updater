@@ -1,6 +1,8 @@
 (ns ddu.main
   (:require [cljs.nodejs :as nodejs]
-            [cljs.core.async :refer [chan put! <! close!]])
+            [cljs.core.async :refer [chan put! <! close!]]
+            [cljs-node-io.core :refer [slurp]]
+            [cljs.reader :refer [read-string]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; Use print/println instead of console.log
@@ -9,9 +11,10 @@
 (def https (nodejs/require "https"))
 (def fs (nodejs/require "fs"))
 
-(def config
-  (-> (.parse js/JSON (.readFileSync fs "config.json"))
-      (js->clj :keywordize-keys true)))
+
+(defn load-config
+  []
+  (-> "config.edn" slurp read-string))
 
 
 (defn get-req
@@ -37,7 +40,8 @@
   long and something else is printing (stderr for example) (we know it won't be
   but still good practice)"
   []
-  (let [response-ch (get-req (:dns-url config))]
+  (let [config (load-config)
+        response-ch (get-req (:dns-url config))]
     ;; Could use go-loop but that isn't a recur target in cljs, some old bug?
     (go
       (loop [response ""]
