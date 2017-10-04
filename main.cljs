@@ -5,17 +5,34 @@
 
 (def config
   (-> (.parse js/JSON (.readFileSync fs "config.json"))
-      (js->clj :keywordize-keys true)))
-
-(def raw-data (atom nil))
+      (js->clj)))
 
 (defn get-req [url]
-  (.get https url
-        (fn [res]
-          (.on res "data"
-               (fn [data]
-                 (reset! raw-data (str @raw-data data))))
-          (.on res "end"
-               (fn [] (js/console.log @raw-data))))))
+  (js/Promise.
+   (fn [resolve reject]
+     (.get https url
+           (fn [res]
+             (if (<= 200 (.-statusCode res) 299)
+               (resolve nil)
+               (reject nil)))))))
 
-(get-req (:dns-url config))
+(defn update-service
+  [url]
+  (get-req url))
+
+(let [args (js->clj js/process.argv)
+      target (when (> 3 (count args)))]
+  (if (= target "--all")
+    (doseq [[service-name url] config]
+      (println "updating" (pr-str service-name))
+      (-> (update-service url)
+          (.then
+           (fn [_] (println service-name "updated successfully"))
+           (fn [_] (println "ERROR" service-name)))))
+    (if-let [service-url (get config target)]
+      (do
+        (println "updating!")
+        (update-service service-url))
+      (do
+        (println "ERROR: either provide a service to update")
+        (println "\tknown services:" (-> config keys pr-str))))))
